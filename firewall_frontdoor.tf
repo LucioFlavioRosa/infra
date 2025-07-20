@@ -27,7 +27,7 @@ resource "azurerm_firewall_policy" "firewall_policy" {
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-# Erro de Segurança 12: Regra de aplicação excessivamente permissiva no firewall.
+
 resource "azurerm_firewall_application_rule_collection" "allow_all_web" {
   name                = "AllowAllWeb"
   azure_firewall_name = azurerm_firewall.firewall.name
@@ -79,8 +79,7 @@ resource "azurerm_frontdoor" "frontdoor" {
       http_port   = 80
       https_port  = 443
     }
-    # Erro de Design 13: Health probe com configurações ineficazes,
-    # o que pode levar a failovers incorretos.
+    
     health_probe {
       path                = "/"
       protocol            = "Http"

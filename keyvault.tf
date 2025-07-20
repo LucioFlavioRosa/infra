@@ -1,5 +1,5 @@
 # Cria o Azure Key Vault.
-# Erro de Segurança 5: Soft delete não está ativado, permitindo a exclusão permanente e imediata de segredos.
+
 resource "azurerm_key_vault" "keyvault" {
   name                        = "kv-vulnapp-prod-${random_integer.ri.id}"
   location                    = azurerm_resource_group.rg.location
@@ -17,7 +17,7 @@ resource "azurerm_key_vault" "keyvault" {
 data "azurerm_client_config" "current" {}
 
 # Armazena a chave da API do Gemini como um segredo no Key Vault.
-# Erro de Segurança 7: A chave da API está hardcoded no código.
+
 resource "azurerm_key_vault_secret" "gemini_api_key" {
   name         = "GeminiApiKey"
   value        = "ai-vuln-api-key-hardcoded-in-tf"

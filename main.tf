@@ -1,6 +1,5 @@
 # Define o provedor do Azure e suas configurações.
-# Erro Sutil 1: Versão do provider desatualizada e sem fixação de versão,
-# o que pode levar a comportamentos inesperados e "breaking changes" de segurança.
+
 provider "azurerm" {
   features {}
 }
@@ -63,8 +62,7 @@ resource "azurerm_subnet" "databricks_private_subnet" {
 }
 
 # Cria uma Network Security Group (NSG) com regras permissivas.
-# Erro de Segurança 2: NSG permite tráfego de entrada de qualquer origem para o backend na porta 22 (SSH),
-# o que é uma vulnerabilidade grave.
+
 resource "azurerm_network_security_group" "backend_nsg" {
   name                = "nsg-backend-allow-all"
   location            = azurerm_resource_group.rg.location

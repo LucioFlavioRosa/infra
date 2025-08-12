@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Análise de Código Multi-Agente</title>
+    <style>
+        /* Estilos CSS (sem alterações) */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 2rem; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 700px; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); }
+        h1, h2 { color: #2c3e50; text-align: center; border-bottom: 2px solid #e0e0e0; padding-bottom: 1rem; margin-top: 0; }
+        .hidden { display: none; }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        input[type="text"], select, textarea { width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        textarea { min-height: 100px; resize: vertical; }
+        .button { display: inline-block; width: 100%; padding: 1rem; border: none; border-radius: 6px; background-color: #3498db; color: white; font-size: 1.1rem; font-weight: 600; cursor: pointer; text-align: center; transition: background-color 0.3s; }
+        .button:hover { background-color: #2980b9; }
+        .button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .button-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .button.secondary { background-color: #e74c3c; }
+        .button.secondary:hover { background-color: #c0392b; }
+        .button.tertiary { background-color: #f39c12; color: white; }
+        .button.tertiary:hover { background-color: #e67e22; }
+        .status-tracker { list-style: none; padding: 0; }
+        .status-item { padding: 1rem; margin-bottom: 0.5rem; border-left: 4px solid #bdc3c7; background-color: #ecf0f1; transition: all 0.4s ease; opacity: 0.6; }
+        .status-item.completed { border-left-color: #2ecc71; background-color: #f0fff4; opacity: 1; }
+        .status-item.active { border-left-color: #3498db; background-color: #eaf5ff; opacity: 1; animation: pulse 2s infinite; }
+        .status-item.failed { border-left-color: #e74c3c; background-color: #fff1f2; opacity: 1; }
+        @keyframes pulse { 0% { background-color: #eaf5ff; } 50% { background-color: #d4e9fd; } 100% { background-color: #eaf5ff; } }
+        .report-content, .results-content { background-color: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 6px; padding: 1.5rem; white-space: pre-wrap; font-family: "Courier New", Courier, monospace; max-height: 400px; overflow-y: auto; }
+        .pr-summary { margin-bottom: 1.5rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 1.5rem; }
+        .pr-summary:last-child { border-bottom: none; }
+        .pr-link { font-weight: bold; color: #2980b9; text-decoration: none; }
+        .file-list { list-style: none; padding-left: 1rem; font-size: 0.9rem; }
+        .file-list li::before { content: "📄"; margin-right: 0.5rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <div id="main-page">
+            <h1>Análise de Código com IA</h1>
+            <form id="analysis-form">
+                <div class="form-group">
+                    <label for="repo_name">Nome do Repositório (usuário/repo)</label>
+                    <input type="text" id="repo_name" name="repo_name" placeholder="Ex: meu-usuario/meu-projeto" required>
+                </div>
+                <div class="form-group">
+                    <label for="branch_name">Nome da Branch (opcional)</label>
+                    <input type="text" id="branch_name" name="branch_name" placeholder="Ex: main (se vazio, usa a padrão)">
+                </div>
+                <div class="form-group">
+                    <label for="analysis_type">Tipo de Análise</label>
+                    <select id="analysis_type" name="analysis_type">
+                        <option value="design">Análise de Design</option>
+                        <option value="relatorio_teste_unitario">Relatório de Teste Unitário</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="instrucoes_extras">Instruções Extras (opcional)</label>
+                    <textarea id="instrucoes_extras" name="instrucoes_extras" placeholder="Ex: Adicione docstrings em todas as funções públicas."></textarea>
+                </div>
+                <button type="submit" class="button" id="submit-btn">Iniciar Análise</button>
+            </form>
+        </div>
+
+        <div id="status-page" class="hidden">
+            <h2>Acompanhamento do Processo</h2>
+            <ul class="status-tracker">
+                <li id="status-analise" class="status-item">Analisando o código</li>
+                <li id="status-refatoracao" class="status-item">Refatorando Código</li>
+                <li id="status-agrupamento" class="status-item">Agrupando Commits</li>
+                <li id="status-preparacao" class="status-item">Preparando Dados</li>
+                <li id="status-commit" class="status-item">Realizando Commits no GitHub</li>
+                <li id="status-concluido" class="status-item">Concluído</li>
+            </ul>
+            <div id="error-message" class="report-content hidden" style="border-color: #e74c3c; background-color: #fff1f2;"></div>
+            <div class="button-group">
+                <button class="button tertiary hidden" id="restart-on-error-btn">Iniciar Nova Análise</button>
+            </div>
+        </div>
+
+        <div id="approval-page" class="hidden">
+            <h2>Relatório Gerado - Revisão Necessária</h2>
+            <p>Por favor, revise o relatório gerado pela IA e aprove o plano de ação.</p>
+            <div class="form-group">
+                <label>Relatório da IA:</label>
+                <div id="report-display" class="report-content"></div>
+            </div>
+            <div class="form-group">
+                <label for="observacoes">Observações para a Aprovação (opcional)</label>
+                <textarea id="observacoes" placeholder="Ex: Gostei do plano, mas não altere o arquivo 'config.py'."></textarea>
+            </div>
+            <div class="button-group">
+                <button class="button" id="approve-btn">Aprovar e Continuar</button>
+                <button class="button secondary" id="reject-btn">Reprovar</button>
+            </div>
+        </div>
+
+        <div id="results-page" class="hidden">
+            <h2>🎉 Processo Concluído com Sucesso!</h2>
+            <p>As alterações foram aplicadas e os Pull Requests abaixo foram criados.</p>
+            <div id="results-summary" class="results-content"></div>
+            <div class="button-group">
+                <button class="button" id="home-btn">Iniciar Nova Análise</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // === VARIÁVEIS DE ESTADO E DOM ===
+        let jobId = null;
+        let pollingInterval = null;
+        const API_ENDPOINT = "https://poc-agent-revisor-b8cca2f2g2h8f4b5.centralus-01.azurewebsites.net";
+        const HEADERS = {"Content-Type": "application/json"};
+
+        const mainPage = document.getElementById('main-page');
+        const statusPage = document.getElementById('status-page');
+        const approvalPage = document.getElementById('approval-page');
+        const resultsPage = document.getElementById('results-page');
+        const analysisForm = document.getElementById('analysis-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const approveBtn = document.getElementById('approve-btn');
+        const rejectBtn = document.getElementById('reject-btn');
+        const homeBtn = document.getElementById('home-btn');
+        const restartOnErrorBtn = document.getElementById('restart-on-error-btn');
+
+        // Mapeamento dos elementos visuais da timeline
+        const statusItems = {
+            analise: document.getElementById('status-analise'),
+            refatoracao: document.getElementById('status-refatoracao'),
+            agrupamento: document.getElementById('status-agrupamento'),
+            preparacao: document.getElementById('status-preparacao'),
+            commit: document.getElementById('status-commit'),
+            concluido: document.getElementById('status-concluido'),
+        };
+
+        // === FUNÇÕES DE CONTROLE DE UI ===
+        function resetToInitialState() {
+            showPage('main-page');
+            jobId = null;
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            analysisForm.reset();
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Iniciar Análise';
+            document.getElementById('error-message').classList.add('hidden');
+            restartOnErrorBtn.classList.add('hidden');
+            document.querySelector('.status-tracker').classList.remove('failed');
+            // Reseta todos os itens da timeline para o estado inicial
+            Object.values(statusItems).forEach(item => {
+                if(item) item.className = 'status-item';
+            });
+        }
+
+        function showPage(pageId) {
+            [mainPage, statusPage, approvalPage, resultsPage].forEach(page => {
+                page.classList.add('hidden');
+            });
+            document.getElementById(pageId).classList.remove('hidden');
+        }
+
+        // [LÓGICA SIMPLIFICADA E CORRIGIDA]
+        function updateStatusUI(backendStatus) {
+            // Primeiro, limpa todos os estilos
+            Object.values(statusItems).forEach(item => item.classList.remove('active', 'completed'));
+
+            // Agora, aplica os estilos de forma explícita e segura
+            if (['starting', 'reading_repository', 'generating_report'].includes(backendStatus)) {
+                statusItems.analise.classList.add('active');
+            }
+            if (['workflow_started', 'refactoring_code'].includes(backendStatus)) {
+                statusItems.analise.classList.add('completed');
+                statusItems.refatoracao.classList.add('active');
+            }
+            if (['grouping_commits'].includes(backendStatus)) {
+                statusItems.analise.classList.add('completed');
+                statusItems.refatoracao.classList.add('completed');
+                statusItems.agrupamento.classList.add('active');
+            }
+            if (['populating_data'].includes(backendStatus)) {
+                statusItems.analise.classList.add('completed');
+                statusItems.refatoracao.classList.add('completed');
+                statusItems.agrupamento.classList.add('completed');
+                statusItems.preparacao.classList.add('active');
+            }
+            if (['committing_to_github'].includes(backendStatus)) {
+                statusItems.analise.classList.add('completed');
+                statusItems.refatoracao.classList.add('completed');
+                statusItems.agrupamento.classList.add('completed');
+                statusItems.preparacao.classList.add('completed');
+                statusItems.commit.classList.add('active');
+            }
+            if (['completed'].includes(backendStatus)) {
+                 Object.values(statusItems).forEach(item => item.classList.add('completed'));
+            }
+        }
+
+        function showError(message) {
+            showPage('status-page');
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = `Erro: ${message}`;
+            errorDiv.classList.remove('hidden');
+            document.querySelector('.status-tracker').classList.add('failed');
+            // ÚNICO lugar onde o botão de reinício é habilitado
+            restartOnErrorBtn.classList.remove('hidden');
+        }
+
+        // === LÓGICA DE POLLING ===
+        function pollStatus() {
+            if (!jobId) return;
+            fetch(`${API_ENDPOINT}/status/${jobId}`, { headers: HEADERS })
+                .then(response => {
+                    if (!response.ok) throw new Error(`Erro de rede! Status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    const backendStatus = data.status;
+                    updateStatusUI(backendStatus);
+
+                    if (backendStatus === 'pending_approval') {
+                        clearInterval(pollingInterval);
+                        pollingInterval = null;
+                        fetchReportAndShowApprovalPage(jobId);
+                    } else if (backendStatus === 'completed') {
+                        clearInterval(pollingInterval);
+                        pollingInterval = null;
+                        displayResults(data);
+                    } else if (backendStatus === 'failed') {
+                        clearInterval(pollingInterval);
+                        pollingInterval = null;
+                        showError(data.error_details || 'Ocorreu um erro desconhecido.');
+                    }
+                })
+                .catch(err => {
+                    console.error("Polling error:", err);
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    showError('Falha ao obter o status do job. Verifique o console para mais detalhes.');
+                });
+        }
+
+        function fetchReportAndShowApprovalPage(currentJobId) {
+            const reportDisplay = document.getElementById('report-display');
+            reportDisplay.textContent = 'Carregando relatório...';
+            showPage('approval-page');
+
+            fetch(`${API_ENDPOINT}/jobs/${currentJobId}/report`, { headers: HEADERS })
+                .then(response => { if (!response.ok) throw new Error(`Erro ao buscar relatório! Status: ${response.status}`); return response.json(); })
+                .then(data => { reportDisplay.textContent = data.analysis_report || 'O relatório não pôde ser carregado.'; })
+                .catch(err => { console.error("Fetch report error:", err); reportDisplay.textContent = `Erro ao carregar o relatório: ${err.message}`; });
+        }
+
+        function startPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollStatus();
+            pollingInterval = setInterval(pollStatus, 5000);
+        }
+
+        // === LÓGICA DE RESULTADOS ===
+        function displayResults(data) {
+            showPage('results-page');
+            const summaryContainer = document.getElementById('results-summary');
+            summaryContainer.innerHTML = '';
+            const summaryList = data.summary || [];
+            if (summaryList.length === 0) {
+                summaryContainer.textContent = 'O processo foi concluído, mas nenhum Pull Request foi gerado.';
+            } else {
+                 summaryList.forEach(pr_summary => {
+                    const prDiv = document.createElement('div');
+                    prDiv.className = 'pr-summary';
+                    const prLink = document.createElement('a');
+                    prLink.href = pr_summary.pull_request_url;
+                    prLink.textContent = `PR para a branch: ${pr_summary.branch_name}`;
+                    prLink.target = '_blank';
+                    prLink.className = 'pr-link';
+                    const fileList = document.createElement('ul');
+                    fileList.className = 'file-list';
+                    (pr_summary.arquivos_modificados || []).forEach(filePath => {
+                        const fileItem = document.createElement('li');
+                        fileItem.textContent = filePath;
+                        fileList.appendChild(fileItem);
+                    });
+                    prDiv.appendChild(prLink);
+                    if ((pr_summary.arquivos_modificados || []).length > 0) {
+                       prDiv.appendChild(fileList);
+                    }
+                    summaryContainer.appendChild(prDiv);
+                });
+            }
+        }
+
+        // === EVENT LISTENERS ===
+        analysisForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Analisando...';
+
+            // Garante que o estado de erro anterior seja limpo
+            document.getElementById('error-message').classList.add('hidden');
+            restartOnErrorBtn.classList.add('hidden');
+            document.querySelector('.status-tracker').classList.remove('failed');
+            Object.values(statusItems).forEach(item => item.className = 'status-item');
+
+            const formData = new FormData(analysisForm);
+            const payload = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch(`${API_ENDPOINT}/start-analysis`, {
+                    method: 'POST',
+                    headers: HEADERS,
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+                    throw new Error(errorData.detail || 'Erro desconhecido do servidor');
+                }
+                const data = await response.json();
+                jobId = data.job_id;
+                showPage('status-page');
+                updateStatusUI('starting');
+                startPolling();
+            } catch (err) {
+                alert(`Erro ao iniciar a análise: ${err.message}`);
+                resetToInitialState();
+            }
+        });
+
+        function handleApprovalAction(action, observacoes = null) {
+            const payload = { job_id: jobId, action: action, ...(observacoes && { observacoes: observacoes }) };
+            fetch(`${API_ENDPOINT}/update-job-status`, {
+                method: 'POST',
+                headers: HEADERS,
+                body: JSON.stringify(payload)
+            })
+            .then(response => { if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`); return response.json(); })
+            .then(data => {
+                if (action === 'approve') {
+                    showPage('status-page');
+                    updateStatusUI(data.status);
+                    startPolling();
+                } else {
+                    resetToInitialState();
+                }
+            })
+            .catch(err => {
+                alert(`Erro ao enviar ação: ${err.message}`);
+                resetToInitialState();
+            });
+        }
+
+        approveBtn.addEventListener('click', () => {
+            const obs = document.getElementById('observacoes').value;
+            handleApprovalAction('approve', obs);
+        });
+
+        rejectBtn.addEventListener('click', () => handleApprovalAction('reject'));
+        homeBtn.addEventListener('click', resetToInitialState);
+        restartOnErrorBtn.addEventListener('click', resetToInitialState);
+    </script>
+</body>
+</html>
